@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../models/transaction.dart';
 import '../providers/transaction_provider.dart';
 import '../providers/theme_provider.dart';
+import '../providers/account_provider.dart';
 import '../themes/app_theme.dart';
 import '../utils/app_utils.dart';
 
@@ -147,6 +148,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
     final timeStr =
         '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}';
 
+    final accId = context.read<AccountProvider>().activeAccountId;
     await context.read<TransactionProvider>().addTransaction(
           amount: _rawAmount,
           type: _type,
@@ -159,6 +161,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
           note: _noteController.text.trim(),
           date: _selectedDate,
           time: timeStr,
+          accountId: accId,
         );
 
     if (mounted) Navigator.pop(context);

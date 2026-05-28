@@ -77,7 +77,6 @@ class AppConstants {
     'Freelance',
     'Investments',
     'Rental',
-    'Previous Month Savings',
     'Gift',
     'Other',
   ];

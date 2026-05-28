@@ -10,6 +10,7 @@ import '../providers/theme_provider.dart';
 import '../providers/transaction_provider.dart';
 import '../providers/report_provider.dart';
 import '../providers/security_provider.dart';
+import '../providers/account_provider.dart';
 import '../database/hive_service.dart';
 import '../themes/app_theme.dart';
 import '../utils/app_utils.dart';
@@ -44,6 +45,57 @@ class SettingsScreen extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 children: [
+                  // ── Accounts ─────────────────────────────
+                  _SectionHeader(label: 'Accounts', isDark: isDark),
+                  _SettingsCard(
+                    isDark: isDark,
+                    children: [
+                      ...context.watch<AccountProvider>().accounts.map((acc) {
+                        final color = Color(acc.colorValue);
+                        final isActive = acc.id == context.watch<AccountProvider>().activeAccountId;
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: Row(children: [
+                            Container(width: 36, height: 36,
+                              decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+                              child: Icon(IconData(acc.iconCodePoint, fontFamily: 'MaterialIcons'), color: color, size: 18)),
+                            const SizedBox(width: 14),
+                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text(acc.name, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: isDark ? Colors.white : const Color(0xFF1C1C1E))),
+                              Text(acc.accountType, style: TextStyle(fontSize: 11, color: isDark ? AppColors.textSecondary : Colors.grey[500])),
+                            ])),
+                            if (isActive) Icon(Icons.check_circle_rounded, color: color, size: 20),
+                            if (context.read<AccountProvider>().accounts.length > 1)
+                              IconButton(icon: Icon(Icons.delete_outline_rounded, size: 18, color: Colors.grey[400]),
+                                onPressed: () async {
+                                  final confirmed = await showDialog<bool>(context: context,
+                                    builder: (c) => AlertDialog(
+                                      backgroundColor: isDark ? AppColors.darkCard : Colors.white,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                      title: Text('Delete ${acc.name}?'),
+                                      content: const Text('This will delete all transactions for this account.'),
+                                      actions: [
+                                        TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+                                        TextButton(onPressed: () => Navigator.pop(c, true),
+                                          style: TextButton.styleFrom(foregroundColor: AppColors.expenseRed),
+                                          child: const Text('Delete')),
+                                      ],
+                                    ));
+                                  if (confirmed == true && context.mounted) {
+                                    await context.read<AccountProvider>().removeAccount(acc.id);
+                                    if (context.mounted) {
+                                      context.read<TransactionProvider>().setActiveAccount(
+                                        context.read<AccountProvider>().activeAccountId);
+                                    }
+                                  }
+                                }),
+                          ]),
+                        );
+                      }),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
                   // ── Appearance ─────────────────────────────
                   _SectionHeader(label: 'Appearance', isDark: isDark),
                   _SettingsCard(

@@ -3,170 +3,139 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import '../models/monthly_report.dart';
+import '../models/account.dart';
 import '../utils/app_utils.dart';
 
 class PdfGenerator {
   static Future<File> generateReport(
-      MonthlyReport report, String currency) async {
+      MonthlyReport report, String currency, {String? accountName}) async {
     final pdf = pw.Document();
-
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(32),
         build: (context) => [
-          // ── Header ────────────────────────────────────
-          pw.Container(
-            padding: const pw.EdgeInsets.all(20),
-            decoration: pw.BoxDecoration(
-              color: PdfColors.blueGrey900,
-              borderRadius: pw.BorderRadius.circular(12),
-            ),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(
-                  'Finora',
-                  style: pw.TextStyle(
-                    fontSize: 28,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.white,
-                  ),
-                ),
-                pw.SizedBox(height: 4),
-                pw.Text(
-                  'Monthly Report — ${AppDateUtils.formatMonthYear(report.month, report.year)}',
-                  style: pw.TextStyle(
-                    fontSize: 14,
-                    color: PdfColors.white,
-                  ),
-                ),
-                pw.SizedBox(height: 4),
-                pw.Text(
-                  'Generated: ${AppDateUtils.formatDate(report.generatedAt)}',
-                  style: pw.TextStyle(
-                    fontSize: 11,
-                    color: PdfColors.grey300,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _buildHeader(report, currency, accountName: accountName),
           pw.SizedBox(height: 24),
-
-          // ── Summary ────────────────────────────────────
-          pw.Text(
-            'Summary',
-            style: pw.TextStyle(
-              fontSize: 18,
-              fontWeight: pw.FontWeight.bold,
-            ),
-          ),
-          pw.SizedBox(height: 12),
-          pw.Table(
-            border: pw.TableBorder.all(color: PdfColors.grey300),
-            children: [
-              _tableRow('Total Income',
-                  CurrencyFormatter.format(report.totalIncome, currency),
-                  isHeader: true),
-              _tableRow('Total Expense',
-                  CurrencyFormatter.format(report.totalExpense, currency)),
-              _tableRow(
-                  'Net Savings',
-                  CurrencyFormatter.format(
-                      report.savings.clamp(0, double.infinity), currency),
-                  isHeader: true),
-            ],
-          ),
+          _buildSummary(report, currency),
           pw.SizedBox(height: 24),
-
-          // ── Expense Breakdown ──────────────────────────
           if (report.expenseBreakdown.isNotEmpty) ...[
-            pw.Text(
-              'Expense Breakdown',
-              style: pw.TextStyle(
-                fontSize: 18,
-                fontWeight: pw.FontWeight.bold,
-              ),
-            ),
-            pw.SizedBox(height: 12),
-            pw.Table(
-              border: pw.TableBorder.all(color: PdfColors.grey300),
-              children: [
-                _tableRow('Category', 'Amount', isHeader: true),
-                ...report.expenseBreakdown.entries.map((e) =>
-                    _tableRow(e.key, CurrencyFormatter.format(e.value, currency))),
-              ],
-            ),
+            _buildBreakdownTable('Expense Breakdown', 'Category', report.expenseBreakdown, currency),
             pw.SizedBox(height: 24),
           ],
-
-          // ── Income Breakdown ───────────────────────────
-          if (report.incomeBreakdown.isNotEmpty) ...[
-            pw.Text(
-              'Income Breakdown',
-              style: pw.TextStyle(
-                fontSize: 18,
-                fontWeight: pw.FontWeight.bold,
-              ),
-            ),
-            pw.SizedBox(height: 12),
-            pw.Table(
-              border: pw.TableBorder.all(color: PdfColors.grey300),
-              children: [
-                _tableRow('Source', 'Amount', isHeader: true),
-                ...report.incomeBreakdown.entries.map((e) =>
-                    _tableRow(e.key, CurrencyFormatter.format(e.value, currency))),
-              ],
-            ),
-          ],
-
+          if (report.incomeBreakdown.isNotEmpty)
+            _buildBreakdownTable('Income Breakdown', 'Source', report.incomeBreakdown, currency),
           pw.SizedBox(height: 40),
           pw.Divider(),
-          pw.Text(
-            'Generated by Finora — Your offline personal finance tracker',
-            style: pw.TextStyle(fontSize: 10, color: PdfColors.grey500),
-          ),
+          pw.Text('Generated by Finora — Your offline personal finance tracker',
+            style: pw.TextStyle(fontSize: 10, color: PdfColors.grey500)),
         ],
       ),
     );
-
     final dir = await getTemporaryDirectory();
-    final filename =
-        'finora_${AppDateUtils.fullMonthName(report.month).toLowerCase()}_${report.year}.pdf';
+    final filename = 'finora_${AppDateUtils.fullMonthName(report.month).toLowerCase()}_${report.year}.pdf';
     final file = File('${dir.path}/$filename');
     await file.writeAsBytes(await pdf.save());
     return file;
   }
 
-  static pw.TableRow _tableRow(String col1, String col2,
-      {bool isHeader = false}) {
+  /// Generate a collective PDF with each account on its own page
+  static Future<File> generateCollectiveReport({
+    required List<MapEntry<Account, MonthlyReport>> accountReports,
+    required String currency,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    final pdf = pw.Document();
+
+    for (final entry in accountReports) {
+      final account = entry.key;
+      final report = entry.value;
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(32),
+          build: (context) => [
+            _buildHeader(report, currency, accountName: account.name),
+            pw.SizedBox(height: 24),
+            _buildSummary(report, currency),
+            pw.SizedBox(height: 24),
+            if (report.expenseBreakdown.isNotEmpty) ...[
+              _buildBreakdownTable('Expense Breakdown', 'Category', report.expenseBreakdown, currency),
+              pw.SizedBox(height: 24),
+            ],
+            if (report.incomeBreakdown.isNotEmpty)
+              _buildBreakdownTable('Income Breakdown', 'Source', report.incomeBreakdown, currency),
+            pw.SizedBox(height: 40),
+            pw.Divider(),
+            pw.Text('Generated by Finora', style: pw.TextStyle(fontSize: 10, color: PdfColors.grey500)),
+          ],
+        ),
+      );
+    }
+
+    final dir = await getTemporaryDirectory();
+    final ts = '${startDate.day}-${AppDateUtils.monthName(startDate.month)}_to_${endDate.day}-${AppDateUtils.monthName(endDate.month)}_${endDate.year}';
+    final file = File('${dir.path}/finora_collective_$ts.pdf');
+    await file.writeAsBytes(await pdf.save());
+    return file;
+  }
+
+  static pw.Widget _buildHeader(MonthlyReport report, String currency, {String? accountName}) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(20),
+      decoration: pw.BoxDecoration(color: PdfColors.blueGrey900, borderRadius: pw.BorderRadius.circular(12)),
+      child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+          pw.Text('Finora', style: pw.TextStyle(fontSize: 28, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
+          if (accountName != null)
+            pw.Container(
+              padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: pw.BoxDecoration(color: PdfColors.blue800, borderRadius: pw.BorderRadius.circular(8)),
+              child: pw.Text(accountName, style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
+            ),
+        ]),
+        pw.SizedBox(height: 4),
+        pw.Text('Monthly Report — ${AppDateUtils.formatMonthYear(report.month, report.year)}',
+          style: pw.TextStyle(fontSize: 14, color: PdfColors.white)),
+        pw.SizedBox(height: 4),
+        pw.Text('Generated: ${AppDateUtils.formatDate(report.generatedAt)}',
+          style: pw.TextStyle(fontSize: 11, color: PdfColors.grey300)),
+      ]),
+    );
+  }
+
+  static pw.Widget _buildSummary(MonthlyReport report, String currency) {
+    return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+      pw.Text('Summary', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+      pw.SizedBox(height: 12),
+      pw.Table(border: pw.TableBorder.all(color: PdfColors.grey300), children: [
+        _tableRow('Total Income', CurrencyFormatter.format(report.totalIncome, currency), isHeader: true),
+        _tableRow('Total Expense', CurrencyFormatter.format(report.totalExpense, currency)),
+        _tableRow('Net Savings', CurrencyFormatter.format(report.savings, currency), isHeader: true),
+      ]),
+    ]);
+  }
+
+  static pw.Widget _buildBreakdownTable(String title, String col1Label, Map<String, double> breakdown, String currency) {
+    return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+      pw.Text(title, style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+      pw.SizedBox(height: 12),
+      pw.Table(border: pw.TableBorder.all(color: PdfColors.grey300), children: [
+        _tableRow(col1Label, 'Amount', isHeader: true),
+        ...breakdown.entries.map((e) => _tableRow(e.key, CurrencyFormatter.format(e.value, currency))),
+      ]),
+    ]);
+  }
+
+  static pw.TableRow _tableRow(String col1, String col2, {bool isHeader = false}) {
     return pw.TableRow(
-      decoration: isHeader
-          ? const pw.BoxDecoration(color: PdfColors.blueGrey100)
-          : null,
+      decoration: isHeader ? const pw.BoxDecoration(color: PdfColors.blueGrey100) : null,
       children: [
-        pw.Padding(
-          padding: const pw.EdgeInsets.all(8),
-          child: pw.Text(
-            col1,
-            style: pw.TextStyle(
-              fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal,
-              fontSize: 12,
-            ),
-          ),
-        ),
-        pw.Padding(
-          padding: const pw.EdgeInsets.all(8),
-          child: pw.Text(
-            col2,
-            style: pw.TextStyle(
-              fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal,
-              fontSize: 12,
-            ),
-            textAlign: pw.TextAlign.right,
-          ),
-        ),
+        pw.Padding(padding: const pw.EdgeInsets.all(8),
+          child: pw.Text(col1, style: pw.TextStyle(fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal, fontSize: 12))),
+        pw.Padding(padding: const pw.EdgeInsets.all(8),
+          child: pw.Text(col2, style: pw.TextStyle(fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal, fontSize: 12), textAlign: pw.TextAlign.right)),
       ],
     );
   }

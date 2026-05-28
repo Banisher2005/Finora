@@ -39,6 +39,9 @@ class Transaction extends HiveObject {
   @HiveField(8)
   DateTime createdAt;
 
+  @HiveField(9)
+  String accountId;
+
   Transaction({
     required this.id,
     required this.amount,
@@ -49,5 +52,6 @@ class Transaction extends HiveObject {
     required this.date,
     required this.time,
     required this.createdAt,
+    this.accountId = 'default',
   });
 }
