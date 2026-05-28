@@ -141,7 +141,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
                       child: BalanceCard(
-                        balance: txProvider.totalAllTimeBalance,
+                        balance: txProvider.currentBalance,
                         income: txProvider.currentMonthIncome,
                         expense: txProvider.currentMonthExpense,
                         currency: currency,
@@ -150,41 +150,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                     ).animate().fadeIn(duration: 500.ms, delay: 100.ms).slideY(begin: 0.1),
                   ),
 
-                  // ── Summary Row ─────────────────────────────
+                  // ── Piggy Bank (All-Time Savings) ─────────────────────
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                      child: Row(
-                        children: [
-                          _SummaryChip(
-                            label: 'Income',
-                            amount: txProvider.currentMonthIncome,
-                            color: AppColors.incomeGreen,
-                            icon: Icons.arrow_downward_rounded,
-                            currency: currency,
-                            isDark: isDark,
-                          ),
-                          const SizedBox(width: 10),
-                          _SummaryChip(
-                            label: 'Expense',
-                            amount: txProvider.currentMonthExpense,
-                            color: AppColors.expenseRed,
-                            icon: Icons.arrow_upward_rounded,
-                            currency: currency,
-                            isDark: isDark,
-                          ),
-                          const SizedBox(width: 10),
-                          _SummaryChip(
-                            label: 'Saved',
-                            amount: (txProvider.currentMonthIncome -
-                                    txProvider.currentMonthExpense)
-                                .clamp(0, double.infinity),
-                            color: AppColors.savingsBlue,
-                            icon: Icons.savings_outlined,
-                            currency: currency,
-                            isDark: isDark,
-                          ),
-                        ],
+                      child: _PiggyBankCard(
+                        totalSaved: txProvider.totalAllTimeBalance,
+                        currency: currency,
+                        isDark: isDark,
                       ).animate().fadeIn(duration: 500.ms, delay: 200.ms),
                     ),
                   ),
@@ -333,72 +306,81 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 }
 
-class _SummaryChip extends StatelessWidget {
-  final String label;
-  final double amount;
-  final Color color;
-  final IconData icon;
+class _PiggyBankCard extends StatelessWidget {
+  final double totalSaved;
   final String currency;
   final bool isDark;
 
-  const _SummaryChip({
-    required this.label,
-    required this.amount,
-    required this.color,
-    required this.icon,
+  const _PiggyBankCard({
+    required this.totalSaved,
     required this.currency,
     required this.isDark,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.darkCard : Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.2 : 0.06),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
+    final isPositive = totalSaved >= 0;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkCard : Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: (isPositive ? AppColors.savingsBlue : AppColors.expenseRed).withOpacity(0.15),
+          width: 1.5,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: color, size: 16),
+        boxShadow: [
+          BoxShadow(
+            color: (isPositive ? AppColors.savingsBlue : AppColors.expenseRed).withOpacity(isDark ? 0.1 : 0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: (isPositive ? AppColors.savingsBlue : AppColors.expenseRed).withOpacity(0.12),
+              borderRadius: BorderRadius.circular(16),
             ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                color: isDark ? AppColors.textSecondary : Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
+            child: Icon(
+              isPositive ? Icons.savings_rounded : Icons.money_off_rounded,
+              color: isPositive ? AppColors.savingsBlue : AppColors.expenseRed,
+              size: 28,
             ),
-            const SizedBox(height: 2),
-            Text(
-              CurrencyFormatter.formatCompact(amount, currency),
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: isDark ? Colors.white : const Color(0xFF1C1C1E),
-              ),
-              overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Total Net Savings',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? AppColors.textSecondary : Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  CurrencyFormatter.format(totalSaved, currency),
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : const Color(0xFF1C1C1E),
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
