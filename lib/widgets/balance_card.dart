@@ -57,7 +57,7 @@ class BalanceCard extends StatelessWidget {
               ),
             ),
             child: const Text(
-              'This Month',
+              'Total Balance',
               style: TextStyle(
                 color: Colors.white70,
                 fontSize: 12,
@@ -73,7 +73,7 @@ class BalanceCard extends StatelessWidget {
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
-              '${isPositive ? '' : '−'}${CurrencyFormatter.format(balance.abs(), currency)}',
+              CurrencyFormatter.format(balance.abs(), currency),
               style: const TextStyle(
                 fontSize: 42,
                 fontWeight: FontWeight.w700,

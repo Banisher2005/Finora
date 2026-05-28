@@ -11,34 +11,18 @@ class TransactionProvider extends ChangeNotifier {
   DateTime? _filterStart;
   DateTime? _filterEnd;
 
-  /// The active account to scope all queries to
-  String _activeAccountId = '';
-
   List<Transaction> get transactions => _transactions;
   String get searchQuery => _searchQuery;
   TransactionType? get filterType => _filterType;
-  String get activeAccountId => _activeAccountId;
 
   TransactionProvider() {
     loadTransactions();
   }
 
-  void setActiveAccount(String accountId) {
-    _activeAccountId = accountId;
-    loadTransactions();
-  }
-
   void loadTransactions() {
-    if (_activeAccountId.isNotEmpty) {
-      _transactions = HiveService.getTransactionsForAccount(_activeAccountId);
-    } else {
-      _transactions = HiveService.getAllTransactions();
-    }
+    _transactions = HiveService.getAllTransactions();
     notifyListeners();
   }
-
-  /// All transactions across all accounts (for combined savings)
-  List<Transaction> get allTransactions => HiveService.getAllTransactions();
 
   List<Transaction> get filteredTransactions {
     var list = _transactions;
@@ -74,7 +58,7 @@ class TransactionProvider extends ChangeNotifier {
     return _transactions.take(10).toList();
   }
 
-  // ── Totals for current month (active account) ─────────────────
+  // ── Totals for current month ──────────────────────────────────
   double get currentMonthIncome {
     final now = DateTime.now();
     return _transactions
@@ -95,26 +79,13 @@ class TransactionProvider extends ChangeNotifier {
         .fold(0, (sum, t) => sum + t.amount);
   }
 
-  /// Current month balance: income − expense for this month, this account
-  double get currentMonthBalance => currentMonthIncome - currentMonthExpense;
+  double get currentBalance => currentMonthIncome - currentMonthExpense;
 
-  /// Net savings for the active account (all-time income − all-time expense)
-  /// This is NOT double-counted; it's a pure calculation from raw transactions
-  double get accountNetSavings {
-    double income = _transactions.fold(
-        0, (s, t) => t.type == TransactionType.income ? s + t.amount : s);
-    double expense = _transactions.fold(
-        0, (s, t) => t.type == TransactionType.expense ? s + t.amount : s);
-    return income - expense;
-  }
-
-  /// Combined net savings across ALL accounts
-  double get combinedNetSavings {
-    final all = HiveService.getAllTransactions();
+  double get totalAllTimeBalance {
     double income =
-        all.fold(0, (s, t) => t.type == TransactionType.income ? s + t.amount : s);
+        _transactions.fold(0, (s, t) => t.type == TransactionType.income ? s + t.amount : s);
     double expense =
-        all.fold(0, (s, t) => t.type == TransactionType.expense ? s + t.amount : s);
+        _transactions.fold(0, (s, t) => t.type == TransactionType.expense ? s + t.amount : s);
     return income - expense;
   }
 
@@ -127,7 +98,6 @@ class TransactionProvider extends ChangeNotifier {
     String note = '',
     required DateTime date,
     required String time,
-    String? accountId,
   }) async {
     final tx = Transaction(
       id: _uuid.v4(),
@@ -139,7 +109,6 @@ class TransactionProvider extends ChangeNotifier {
       date: date,
       time: time,
       createdAt: DateTime.now(),
-      accountId: accountId ?? _activeAccountId,
     );
     await HiveService.addTransaction(tx);
     loadTransactions();

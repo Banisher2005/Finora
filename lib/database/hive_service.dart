@@ -3,12 +3,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../models/transaction.dart';
 import '../models/monthly_report.dart';
-import '../models/account.dart';
 
 class HiveService {
   static const String _transactionsBox = 'transactions';
   static const String _reportsBox = 'monthly_reports';
-  static const String _accountsBox = 'accounts';
   static const _uuid = Uuid();
 
   static Box<Transaction> get transactions =>
@@ -17,83 +15,13 @@ class HiveService {
   static Box<MonthlyReport> get reports =>
       Hive.box<MonthlyReport>(_reportsBox);
 
-  static Box<Account> get accounts => Hive.box<Account>(_accountsBox);
-
   static Future<void> initialize() async {
     await Hive.initFlutter();
     Hive.registerAdapter(TransactionTypeAdapter());
     Hive.registerAdapter(TransactionAdapter());
     Hive.registerAdapter(MonthlyReportAdapter());
-    Hive.registerAdapter(AccountAdapter());
     await Hive.openBox<Transaction>(_transactionsBox);
     await Hive.openBox<MonthlyReport>(_reportsBox);
-    await Hive.openBox<Account>(_accountsBox);
-  }
-
-  // ── Migration ──────────────────────────────────────────────────
-  /// Migrates legacy data: assigns accountId to existing transactions,
-  /// removes auto-generated "Previous Month Savings" carry-forward entries.
-  static Future<void> migrateExistingData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final migrated = prefs.getBool('v2_migrated') ?? false;
-    if (migrated) return;
-
-    // Remove carry-forward transactions
-    final toDelete = <String>[];
-    for (final tx in transactions.values) {
-      if (tx.source == 'Previous Month Savings' &&
-          tx.note.contains('Auto carry-forward')) {
-        toDelete.add(tx.id);
-      }
-    }
-    for (final id in toDelete) {
-      await transactions.delete(id);
-    }
-
-    // Assign 'default' accountId to any transactions that don't have one
-    // (the Hive adapter handles the default, but we ensure consistency)
-    for (final tx in transactions.values) {
-      if (tx.accountId.isEmpty) {
-        tx.accountId = 'default';
-        await tx.save();
-      }
-    }
-
-    await prefs.setBool('v2_migrated', true);
-  }
-
-  // ── Accounts ──────────────────────────────────────────────────
-  static Future<void> addAccount(Account account) async {
-    await accounts.put(account.id, account);
-  }
-
-  static Future<void> updateAccount(Account account) async {
-    await accounts.put(account.id, account);
-  }
-
-  static Future<void> deleteAccount(String id) async {
-    // Also delete all transactions for this account
-    final toDelete = transactions.values
-        .where((t) => t.accountId == id)
-        .map((t) => t.id)
-        .toList();
-    for (final txId in toDelete) {
-      await transactions.delete(txId);
-    }
-    await accounts.delete(id);
-  }
-
-  static List<Account> getAllAccounts() {
-    return accounts.values.toList()
-      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-  }
-
-  static Account? getAccount(String id) {
-    try {
-      return accounts.values.firstWhere((a) => a.id == id);
-    } catch (_) {
-      return null;
-    }
   }
 
   // ── Transactions ──────────────────────────────────────────────
@@ -114,27 +42,9 @@ class HiveService {
       ..sort((a, b) => b.date.compareTo(a.date));
   }
 
-  static List<Transaction> getTransactionsForAccount(String accountId) {
-    return transactions.values
-        .where((t) => t.accountId == accountId)
-        .toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
-  }
-
   static List<Transaction> getTransactionsForMonth(int month, int year) {
     return transactions.values
         .where((t) => t.date.month == month && t.date.year == year)
-        .toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
-  }
-
-  static List<Transaction> getTransactionsForMonthAndAccount(
-      int month, int year, String accountId) {
-    return transactions.values
-        .where((t) =>
-            t.date.month == month &&
-            t.date.year == year &&
-            t.accountId == accountId)
         .toList()
       ..sort((a, b) => b.date.compareTo(a.date));
   }
@@ -173,8 +83,6 @@ class HiveService {
   }
 
   // ── Monthly Auto-Close ────────────────────────────────────────
-  /// Generates a MonthlyReport for the previous month.
-  /// Does NOT carry forward savings as income (that was the bug).
   static Future<void> checkAndCloseMonth() async {
     final prefs = await SharedPreferences.getInstance();
     final now = DateTime.now();
@@ -228,10 +136,6 @@ class HiveService {
     );
     await saveReport(report);
 
-    // ── NO carry-forward ──
-    // The old code created a "Previous Month Savings" income transaction
-    // which double-counted the balance. Removed intentionally.
-
     // Update last closed month
     await prefs.setInt('lastClosedMonth', prevMonth);
     await prefs.setInt('lastClosedYear', prevYear);
@@ -249,13 +153,9 @@ class HiveService {
   static Future<void> deleteAllData() async {
     await transactions.clear();
     await reports.clear();
-    await accounts.clear();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('lastClosedMonth');
     await prefs.remove('lastClosedYear');
-    await prefs.remove('v2_migrated');
-    await prefs.remove('active_account_id');
-    await prefs.remove('account_setup_done');
   }
 
   // ── Backup / Restore ──────────────────────────────────────────
@@ -271,7 +171,6 @@ class HiveService {
               'date': t.date.toIso8601String(),
               'time': t.time,
               'createdAt': t.createdAt.toIso8601String(),
-              'accountId': t.accountId,
             })
         .toList();
 
@@ -289,43 +188,12 @@ class HiveService {
             })
         .toList();
 
-    final accountList = accounts.values
-        .map((a) => {
-              'id': a.id,
-              'name': a.name,
-              'colorValue': a.colorValue,
-              'iconCodePoint': a.iconCodePoint,
-              'accountType': a.accountType,
-              'createdAt': a.createdAt.toIso8601String(),
-            })
-        .toList();
-
-    return {
-      'transactions': txList,
-      'reports': reportList,
-      'accounts': accountList,
-      'version': 2,
-    };
+    return {'transactions': txList, 'reports': reportList, 'version': 1};
   }
 
   static Future<void> importFromJson(Map<String, dynamic> data) async {
     await transactions.clear();
     await reports.clear();
-    await accounts.clear();
-
-    // Import accounts
-    final accountList = data['accounts'] as List? ?? [];
-    for (final a in accountList) {
-      final account = Account(
-        id: a['id'],
-        name: a['name'],
-        colorValue: a['colorValue'],
-        iconCodePoint: a['iconCodePoint'],
-        accountType: a['accountType'] ?? 'Personal',
-        createdAt: DateTime.parse(a['createdAt']),
-      );
-      await accounts.put(account.id, account);
-    }
 
     final txList = data['transactions'] as List;
     for (final t in txList) {
@@ -339,7 +207,6 @@ class HiveService {
         date: DateTime.parse(t['date']),
         time: t['time'],
         createdAt: DateTime.parse(t['createdAt']),
-        accountId: t['accountId'] ?? 'default',
       );
       await transactions.put(tx.id, tx);
     }
