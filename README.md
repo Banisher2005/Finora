@@ -1,75 +1,112 @@
 <div align="center">
-  <!-- You can replace this placeholder with an actual logo URL if you host one -->
-  <img src="https://via.placeholder.com/150/0984E3/FFFFFF?text=F&font=poppins" width="100" height="100" alt="Finora Logo" style="border-radius: 20px;">
-  <h1>Finora</h1>
-  <p><strong>Premium, Offline-First Personal Finance Tracker for Android</strong></p>
+
+# Finora
+
+**A premium, offline-first personal finance tracker — built with Flutter, Provider & Hive.**
+
+[![Flutter](https://img.shields.io/badge/Flutter-3-02569B?logo=flutter)](https://flutter.dev/)
+[![Dart](https://img.shields.io/badge/Dart-3-0175C2?logo=dart)](https://dart.dev/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 </div>
 
-<br/>
+---
 
-**Finora** is a meticulously crafted personal finance tracker designed with a focus on privacy, aesthetics, and simplicity. Built with Flutter, it requires no cloud synchronization, logins, or banking integration—putting you completely in control of your financial data.
+> **No login. No cloud sync. No ads.** Open the app and track your finances immediately in total privacy.
 
-## ✨ Key Features
+---
 
-- 🔒 **100% Offline & Private:** Your financial data never leaves your device. All information is stored securely on local device storage using Hive NoSQL.
-- 🛡️ **Biometric App Lock:** Keep your data private with fingerprint, face unlock, or PIN/pattern protection.
-- 💎 **Premium Design:** Enjoy a stunning iOS-inspired UI with frosted glass effects, smooth animations, and a modern dark/light mode toggle.
-- 🇮🇳 **Smart Indian Formatting:** Built specifically for the Indian locale, supporting the Indian comma format (e.g., `1,23,456`) and intuitive word labels (`1.23 Lakh`, `2.4 Crore`) beneath figures.
-- 📊 **Comprehensive Analytics:** Track your money using dynamic `fl_chart` visual breakdowns (pie charts and bar graphs) for income and expenses.
-- 📄 **Custom PDF Reporting:** Generate and export detailed PDF reports spanning any custom date range. Share reports easily via Android's native share sheet.
-- 📅 **Historical Management:** Fully browse, edit, or delete transactions from previous months using intuitive month-to-month navigation.
-- 💾 **Reliable Backup/Restore:** Native path-based backup system allowing you to safely export and import JSON data to and from your device's Downloads folder.
+## Features
 
-## 🛠️ Technology Stack
+### Core Experience
+| Feature | Description |
+|---------|-------------|
+| **Offline First** | Your financial data never leaves your device. Data is stored securely on local storage using Hive NoSQL. |
+| **App Lock** | Keep your data private with biometric authentication (fingerprint, face unlock) or device PIN/pattern fallback. |
+| **Indian Formatting** | Built specifically for the Indian locale, supporting the Indian comma format (e.g., 1,23,456) and intuitive word labels (1.23 Lakh, 2.4 Crore) beneath figures. |
 
-| Category | Technology |
-|---|---|
-| **Framework** | Flutter (Dart) |
-| **Local Database** | Hive / `hive_flutter` (Fast, lightweight NoSQL) |
-| **State Management**| Provider |
-| **UI / Aesthetics** | Material 3, Google Fonts, `flutter_animate` |
-| **Charts** | `fl_chart` |
-| **Exports & Share** | `pdf`, `printing`, `share_plus` |
-| **Security** | `local_auth` |
+### Analytics & Reporting
+- **Dynamic Charts** — Track your money using visual breakdowns (pie charts and bar graphs) for income and expenses.
+- **Custom PDF Export** — Generate and export detailed PDF reports spanning any custom date range. Share reports easily via Android's native share sheet.
+- **Historical Management** — Browse, edit, or delete transactions from previous months using intuitive month-to-month navigation.
 
-## 🚀 Getting Started
+### Customisation & Design
+- **Premium Design** — iOS-inspired UI with frosted glass effects, smooth animations, and clean layouts.
+- **Theme Support** — Modern dark and light mode toggle.
+- **Data Portability** — Native path-based backup system allowing you to safely export and import JSON data to and from your device's Downloads folder.
+
+---
+
+## Getting Started
 
 ### Prerequisites
-- Flutter SDK (>=3.4.0 <4.0.0)
+- [Flutter SDK](https://docs.flutter.dev/get-started/install) >= 3.4.0
 - Android SDK (minSdk 23 for biometric support)
 
-### Installation
+### Run Locally
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/Banisher2005/Finora.git
-   cd Finora
-   ```
+```bash
+# 1. Clone the repo
+git clone https://github.com/Banisher2005/Finora.git
+cd Finora
 
-2. **Install dependencies:**
-   ```bash
-   flutter pub get
-   ```
+# 2. Install dependencies
+flutter pub get
 
-3. **Run the app:**
-   ```bash
-   flutter run
-   ```
+# 3. Start the dev server / run app
+flutter run
+```
 
-4. **Build APK (Release):**
-   ```bash
-   flutter build apk --release
-   ```
-   *The generated APK will be available in `build/app/outputs/flutter-apk/app-release.apk`.*
+### Build APK (Release)
 
-## 🔒 Permissions Used
+```bash
+flutter build apk --release
+```
+*The generated APK will be available in `build/app/outputs/flutter-apk/app-release.apk`.*
+
+---
+
+## Project Structure
+
+```
+Finora/
+├── android/                  # Android native code and configurations
+├── lib/
+│   ├── database/             # Hive local storage implementations
+│   ├── models/               # Data structures (Transaction, MonthlyReport)
+│   ├── providers/            # State management (Theme, Transaction, Report, Security)
+│   ├── screens/              # Main UI views (Dashboard, Transactions, Reports, Settings, Lock)
+│   ├── themes/               # App color palettes and styling definitions
+│   ├── utils/                # Date formatters, currency logic, PDF generator
+│   └── widgets/              # Reusable UI components (TransactionTile, BalanceCard, etc.)
+│   └── main.dart             # Application entry point
+├── pubspec.yaml              # Dependencies and assets
+```
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | [Flutter](https://flutter.dev/) |
+| Language | [Dart](https://dart.dev/) |
+| Local Database | Hive & hive_flutter (Fast NoSQL) |
+| State Management | Provider |
+| UI & Aesthetics | Material 3, Google Fonts, flutter_animate |
+| Charts | fl_chart |
+| Exports & Sharing | pdf, printing, share_plus |
+| Security | local_auth |
+
+---
+
+## Permissions Used
+
 - `READ_EXTERNAL_STORAGE` / `WRITE_EXTERNAL_STORAGE` / `MANAGE_EXTERNAL_STORAGE`: Required for securely exporting/importing JSON backups to the public Downloads folder.
 - `USE_BIOMETRIC` / `USE_FINGERPRINT`: Required for the app lock authentication.
 
-## 👤 Author
+---
 
-Developed and maintained by **[@Banisher2005](https://github.com/Banisher2005)**.
+## License
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+[MIT](LICENSE) (c) 2026 [Banisher2005](https://github.com/Banisher2005)
