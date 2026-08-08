@@ -2,36 +2,37 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppColors {
-  // Dark Mode
-  static const darkBackground = Color(0xFF0F0F12);
-  static const darkSurface = Color(0xFF1C1C1E);
-  static const darkCard = Color(0xFF2C2C2E);
-  static const darkCardElevated = Color(0xFF3A3A3C);
+  // Finora palette — deep navy surfaces with indigo + mint accents.
+  static const darkBackground = Color(0xFF090D18);
+  static const darkSurface = Color(0xFF101725);
+  static const darkCard = Color(0xFF172033);
+  static const darkCardElevated = Color(0xFF202B40);
 
   // Light Mode
-  static const lightBackground = Color(0xFFF5F5F7);
+  static const lightBackground = Color(0xFFF4F7FB);
   static const lightSurface = Color(0xFFFFFFFF);
   static const lightCard = Color(0xFFFFFFFF);
 
-  // Accent
-  static const incomeGreen = Color(0xFF34C759);
-  static const incomeGreenDark = Color(0xFF28A745);
-  static const expenseRed = Color(0xFFFF6B6B);
-  static const expenseOrange = Color(0xFFFF9F43);
-  static const savingsBlue = Color(0xFF0A84FF);
-  static const accentBlue = Color(0xFF0A84FF);
-  static const accentPurple = Color(0xFF5E5CE6);
+  // Accent / semantic colors
+  static const incomeGreen = Color(0xFF20C997);
+  static const incomeGreenDark = Color(0xFF16A085);
+  static const expenseRed = Color(0xFFFF5C70);
+  static const expenseOrange = Color(0xFFFFA94D);
+  static const savingsBlue = Color(0xFF3B82F6);
+  static const accentBlue = Color(0xFF6C63FF);
+  static const accentPurple = Color(0xFF9B7BFF);
+  static const accentTeal = Color(0xFF22C7B8);
 
-  // Gradient starts/ends
-  static const gradientDarkStart = Color(0xFF1A2744);
-  static const gradientDarkEnd = Color(0xFF0A1628);
-  static const gradientLightStart = Color(0xFF4A90D9);
-  static const gradientLightEnd = Color(0xFF357ABD);
+  // Balance card gradients
+  static const gradientDarkStart = Color(0xFF24205A);
+  static const gradientDarkEnd = Color(0xFF111B3A);
+  static const gradientLightStart = Color(0xFF6C63FF);
+  static const gradientLightEnd = Color(0xFF4C7DFF);
 
   // Text
   static const textPrimary = Color(0xFFFFFFFF);
-  static const textSecondary = Color(0xFF8E8E93);
-  static const textTertiary = Color(0xFF48484A);
+  static const textSecondary = Color(0xFF94A3B8);
+  static const textTertiary = Color(0xFF64748B);
 
   // Category colors
   static const List<Color> categoryColors = [
@@ -147,6 +148,13 @@ class AppTheme {
           ),
         ),
       ),
+      chipTheme: ChipThemeData(
+        backgroundColor: AppColors.accentBlue.withOpacity(0.10),
+        selectedColor: AppColors.accentBlue.withOpacity(0.18),
+        side: BorderSide.none,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      dividerTheme: const DividerThemeData(space: 1, thickness: 1),
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -230,6 +238,13 @@ class AppTheme {
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
+      chipTheme: ChipThemeData(
+        backgroundColor: AppColors.accentBlue.withOpacity(0.08),
+        selectedColor: AppColors.accentBlue.withOpacity(0.14),
+        side: BorderSide.none,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      dividerTheme: const DividerThemeData(space: 1, thickness: 1),
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,

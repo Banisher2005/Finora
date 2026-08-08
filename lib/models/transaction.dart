@@ -39,6 +39,12 @@ class Transaction extends HiveObject {
   @HiveField(8)
   DateTime createdAt;
 
+  @HiveField(9)
+  String accountId;
+
+  @HiveField(10)
+  String? imagePath;
+
   Transaction({
     required this.id,
     required this.amount,
@@ -49,5 +55,7 @@ class Transaction extends HiveObject {
     required this.date,
     required this.time,
     required this.createdAt,
+    this.accountId = 'cash',
+    this.imagePath,
   });
 }

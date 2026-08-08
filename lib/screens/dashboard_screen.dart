@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../providers/transaction_provider.dart';
+import '../providers/account_provider.dart';
 import '../providers/theme_provider.dart';
 import '../models/transaction.dart';
 import '../themes/app_theme.dart';
@@ -10,6 +11,7 @@ import '../utils/app_utils.dart';
 import '../widgets/balance_card.dart';
 import '../widgets/transaction_tile.dart';
 import '../widgets/add_transaction_sheet.dart';
+import 'accounts_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final VoidCallback? onSeeAll;
@@ -59,9 +61,22 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
+  void _editTransaction(Transaction tx) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => AddTransactionSheet(
+        initialType: tx.type,
+        transaction: tx,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final txProvider = context.watch<TransactionProvider>();
+    final accountProvider = context.watch<AccountProvider>();
     final themeProvider = context.watch<ThemeProvider>();
     final isDark = themeProvider.isDarkMode;
     final currency = themeProvider.currency;
@@ -106,7 +121,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 style: TextStyle(
                                   fontSize: 26,
                                   fontWeight: FontWeight.w700,
-                                  color: isDark ? Colors.white : const Color(0xFF1C1C1E),
+                                  color: isDark ? Colors.white : const Color(0xFF172033),
                                 ),
                               ),
                             ],
@@ -141,7 +156,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
                       child: BalanceCard(
-                        balance: txProvider.currentBalance,
+                        balance: accountProvider.totalBalance(txProvider.transactions),
                         income: txProvider.currentMonthIncome,
                         expense: txProvider.currentMonthExpense,
                         currency: currency,
@@ -150,15 +165,34 @@ class _DashboardScreenState extends State<DashboardScreen>
                     ).animate().fadeIn(duration: 500.ms, delay: 100.ms).slideY(begin: 0.1),
                   ),
 
-                  // ── Piggy Bank (All-Time Savings) ─────────────────────
+                  // ── Account balances ────────────────────────────────
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                      child: _PiggyBankCard(
-                        totalSaved: txProvider.totalAllTimeBalance,
+                      padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                      child: _AccountBalanceStrip(
+                        cashBalance: accountProvider.balanceFor(
+                          'cash',
+                          txProvider.transactions,
+                        ),
+                        bankBalance: accountProvider.balanceFor(
+                          'bank',
+                          txProvider.transactions,
+                        ),
                         currency: currency,
                         isDark: isDark,
-                      ).animate().fadeIn(duration: 500.ms, delay: 200.ms),
+                        onCashTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AccountsScreen(initialFocusAccountId: 'cash'),
+                          ),
+                        ),
+                        onBankTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AccountsScreen(initialFocusAccountId: 'bank'),
+                          ),
+                        ),
+                      ).animate().fadeIn(duration: 500.ms, delay: 200.ms).slideY(begin: 0.05),
                     ),
                   ),
 
@@ -174,7 +208,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
-                              color: isDark ? Colors.white : const Color(0xFF1C1C1E),
+                              color: isDark ? Colors.white : const Color(0xFF172033),
                             ),
                           ),
                           TextButton(
@@ -214,6 +248,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   isDark: isDark,
                                   onDelete: () =>
                                       txProvider.deleteTransaction(tx.id),
+                                  onEdit: () => _editTransaction(tx),
                                 ).animate()
                                     .fadeIn(duration: 400.ms, delay: (300 + index * 60).ms)
                                     .slideX(begin: 0.05),
@@ -306,86 +341,150 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 }
 
-class _PiggyBankCard extends StatelessWidget {
-  final double totalSaved;
+class _AccountBalanceStrip extends StatelessWidget {
+  final double cashBalance;
+  final double bankBalance;
   final String currency;
   final bool isDark;
+  final VoidCallback onCashTap;
+  final VoidCallback onBankTap;
 
-  const _PiggyBankCard({
-    required this.totalSaved,
+  const _AccountBalanceStrip({
+    required this.cashBalance,
+    required this.bankBalance,
     required this.currency,
     required this.isDark,
+    required this.onCashTap,
+    required this.onBankTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isPositive = totalSaved >= 0;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkCard : Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: (isPositive ? AppColors.savingsBlue : AppColors.expenseRed).withOpacity(0.15),
-          width: 1.5,
+    return Row(
+      children: [
+        Expanded(
+          child: _AccountBalanceCard(
+            label: 'Cash Balance',
+            amount: cashBalance,
+            currency: currency,
+            icon: Icons.payments_rounded,
+            accent: AppColors.accentTeal,
+            isDark: isDark,
+            onTap: onCashTap,
+          ),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: (isPositive ? AppColors.savingsBlue : AppColors.expenseRed).withOpacity(isDark ? 0.1 : 0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _AccountBalanceCard(
+            label: 'Bank Balance',
+            amount: bankBalance,
+            currency: currency,
+            icon: Icons.account_balance_rounded,
+            accent: AppColors.savingsBlue,
+            isDark: isDark,
+            onTap: onBankTap,
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: (isPositive ? AppColors.savingsBlue : AppColors.expenseRed).withOpacity(0.12),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(
-              isPositive ? Icons.savings_rounded : Icons.money_off_rounded,
-              color: isPositive ? AppColors.savingsBlue : AppColors.expenseRed,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Total Net Savings',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? AppColors.textSecondary : Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  CurrencyFormatter.format(totalSaved, currency),
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : const Color(0xFF1C1C1E),
-                    letterSpacing: -0.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
+
+class _AccountBalanceCard extends StatelessWidget {
+  final String label;
+  final double amount;
+  final String currency;
+  final IconData icon;
+  final Color accent;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _AccountBalanceCard({
+    required this.label,
+    required this.amount,
+    required this.currency,
+    required this.icon,
+    required this.accent,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkCard : AppColors.lightCard,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: accent.withOpacity(isDark ? 0.18 : 0.12),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(isDark ? 0.12 : 0.045),
+                blurRadius: 14,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: accent.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    child: Icon(icon, color: accent, size: 18),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 11,
+                    color: isDark ? Colors.white24 : Colors.black26,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? AppColors.textSecondary : AppColors.textTertiary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  CurrencyFormatter.format(amount, currency),
+                  style: TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
+                    color: isDark ? Colors.white : const Color(0xFF172033),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 class _MiniFAB extends StatelessWidget {
   final String label;
   final IconData icon;
@@ -473,7 +572,7 @@ class _EmptyState extends StatelessWidget {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: isDark ? Colors.white : const Color(0xFF1C1C1E),
+              color: isDark ? Colors.white : const Color(0xFF172033),
             ),
           ),
           const SizedBox(height: 8),

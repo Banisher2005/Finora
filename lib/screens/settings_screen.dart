@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +8,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../providers/theme_provider.dart';
+import '../providers/account_provider.dart';
+import 'accounts_screen.dart';
+import '../providers/lending_provider.dart';
 import '../providers/transaction_provider.dart';
 import '../providers/report_provider.dart';
 import '../providers/security_provider.dart';
@@ -15,6 +19,8 @@ import '../themes/app_theme.dart';
 import '../utils/app_utils.dart';
 
 class SettingsScreen extends StatelessWidget {
+  static const _filePickerChannel = MethodChannel('finora/file_picker');
+
   const SettingsScreen({super.key});
 
   @override
@@ -81,6 +87,11 @@ class SettingsScreen extends StatelessWidget {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 20),
+
+                  // ── Accounts ─────────────────────────────────
+                  _SectionHeader(label: 'Accounts', isDark: isDark),
+                  const _AccountsCard(),
                   const SizedBox(height: 20),
 
                   // ── Data ────────────────────────────────────
@@ -213,53 +224,55 @@ class SettingsScreen extends StatelessWidget {
 
   Future<void> _importBackup(BuildContext context) async {
     try {
-      // Scan common Android backup locations for finora_backup_*.json
-      final searchDirs = [
-        '/storage/emulated/0/Download',
-        '/storage/emulated/0/Downloads',
-        (await getApplicationDocumentsDirectory()).path,
-      ];
+      final picked = await _filePickerChannel.invokeMethod<Map<dynamic, dynamic>>(
+        'pickBackup',
+      );
+      if (picked == null) return;
 
-      File? backupFile;
-      for (final dirPath in searchDirs) {
-        final d = Directory(dirPath);
-        if (!await d.exists()) continue;
-        final matches = d
-            .listSync()
-            .whereType<File>()
-            .where((f) =>
-                f.path.endsWith('.json') &&
-                f.path.contains('finora_backup'))
-            .toList();
-        if (matches.isNotEmpty) {
-          // Pick the most recently modified file
-          matches.sort(
-              (a, b) => b.statSync().modified.compareTo(a.statSync().modified));
-          backupFile = matches.first;
-          break;
-        }
+      final rawBytes = picked['bytes'];
+      if (rawBytes is! Uint8List && rawBytes is! List) {
+        throw const FormatException('The selected file could not be read.');
       }
 
-      if (backupFile == null) {
-        if (context.mounted) {
-          _showSnack(
-            context,
-            'No backup found. Export one first — it will be saved to Downloads.',
-            AppColors.expenseOrange,
-          );
-        }
-        return;
+      final bytes = rawBytes is Uint8List
+          ? rawBytes
+          : Uint8List.fromList(List<int>.from(rawBytes));
+      final jsonText = utf8.decode(bytes, allowMalformed: false);
+      final decoded = jsonDecode(jsonText);
+      if (decoded is! Map) {
+        throw const FormatException('This is not a valid Finora backup.');
       }
 
-      final json = await backupFile.readAsString();
-      final data = jsonDecode(json) as Map<String, dynamic>;
+      final data = Map<String, dynamic>.from(decoded);
+      final hasKnownSection = data.containsKey('transactions') ||
+          data.containsKey('accounts') ||
+          data.containsKey('lending') ||
+          data.containsKey('reports');
+      if (!hasKnownSection) {
+        throw const FormatException('This file is not a Finora backup.');
+      }
+
       await HiveService.importFromJson(data);
 
       if (context.mounted) {
         context.read<TransactionProvider>().loadTransactions();
+        context.read<AccountProvider>().loadAccounts();
+        context.read<LendingProvider>().loadEntries();
         context.read<ReportProvider>().loadReports();
-        final name = backupFile.path.split('/').last;
+        final name = picked['name']?.toString() ?? 'backup.json';
         _showSnack(context, '✓ Imported: $name', AppColors.incomeGreen);
+      }
+    } on PlatformException catch (e) {
+      if (context.mounted) {
+        _showSnack(
+          context,
+          'Import failed: ${e.message ?? e.code}',
+          AppColors.expenseRed,
+        );
+      }
+    } on FormatException catch (e) {
+      if (context.mounted) {
+        _showSnack(context, 'Import failed: ${e.message}', AppColors.expenseRed);
       }
     } catch (e) {
       if (context.mounted) {
@@ -616,6 +629,156 @@ class _Divider extends StatelessWidget {
         height: 1,
         color: isDark ? Colors.white10 : Colors.grey[100],
       ),
+    );
+  }
+}
+
+class _AccountsCard extends StatefulWidget {
+  const _AccountsCard();
+
+  @override
+  State<_AccountsCard> createState() => _AccountsCardState();
+}
+
+class _AccountsCardState extends State<_AccountsCard> {
+  Future<void> _addAccount() async {
+    final nameController = TextEditingController();
+    final balanceController = TextEditingController(text: '0');
+
+    final result = await showDialog<(String, double)?>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Add account'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(
+                labelText: 'Account name',
+                hintText: 'e.g. Savings, UPI, Wallet',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: balanceController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Starting balance',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              final name = nameController.text.trim();
+              final balance = double.tryParse(balanceController.text.replaceAll(',', '')) ?? 0;
+              if (name.isNotEmpty) Navigator.pop(ctx, (name, balance));
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+
+    nameController.dispose();
+    balanceController.dispose();
+    if (result == null || !mounted) return;
+    await context.read<AccountProvider>().addAccount(result.$1, initialBalance: result.$2);
+  }
+
+  Future<void> _deleteAccount(String id, String name) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete $name?'),
+        content: const Text(
+          'An account can only be deleted when it has no transactions or lending records.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.expenseRed),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final deleted = await context.read<AccountProvider>().deleteAccount(id);
+    if (!deleted && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This account is in use and cannot be deleted.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<AccountProvider>();
+    final txProvider = context.watch<TransactionProvider>();
+    final theme = context.watch<ThemeProvider>();
+    final isDark = theme.isDarkMode;
+
+    return _SettingsCard(
+      isDark: isDark,
+      children: [
+        ...provider.accounts.asMap().entries.map((entry) {
+          final account = entry.value;
+          final balance = provider.balanceFor(account.id, txProvider.transactions);
+          final isLast = entry.key == provider.accounts.length - 1;
+          return Column(
+            children: [
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => AccountsScreen(initialFocusAccountId: account.id),
+                    ),
+                  );
+                },
+                leading: CircleAvatar(
+                  backgroundColor: AppColors.accentBlue.withOpacity(0.12),
+                  child: Icon(
+                    account.name.toLowerCase().contains('cash')
+                        ? Icons.payments_outlined
+                        : Icons.account_balance_outlined,
+                    color: AppColors.accentBlue,
+                  ),
+                ),
+                title: Text(account.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text(
+                  '${theme.currency}${balance.toStringAsFixed(2)} available',
+                  style: TextStyle(color: isDark ? Colors.white54 : Colors.grey[500]),
+                ),
+                trailing: (account.id == 'cash' || account.id == 'bank')
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        color: AppColors.expenseRed,
+                        onPressed: () => _deleteAccount(account.id, account.name),
+                      ),
+              ),
+              if (!isLast) _Divider(isDark: isDark),
+            ],
+          );
+        }),
+        _Divider(isDark: isDark),
+        _ActionRow(
+          icon: Icons.add_circle_outline,
+          label: 'Add Account',
+          iconColor: AppColors.accentBlue,
+          isDark: isDark,
+          onTap: _addAccount,
+        ),
+      ],
     );
   }
 }

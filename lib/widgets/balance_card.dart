@@ -27,8 +27,8 @@ class BalanceCard extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isDark
-              ? [const Color(0xFF1A2744), const Color(0xFF0D1B35)]
-              : [const Color(0xFF2C6CC4), const Color(0xFF1A4A8F)],
+              ? [AppColors.gradientDarkStart, AppColors.gradientDarkEnd]
+              : [AppColors.gradientLightStart, AppColors.gradientLightEnd],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -57,7 +57,7 @@ class BalanceCard extends StatelessWidget {
               ),
             ),
             child: const Text(
-              'Total Balance',
+              'Account Balance',
               style: TextStyle(
                 color: Colors.white70,
                 fontSize: 12,

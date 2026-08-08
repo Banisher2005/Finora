@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'database/hive_service.dart';
 import 'providers/transaction_provider.dart';
+import 'providers/account_provider.dart';
+import 'providers/lending_provider.dart';
 import 'providers/report_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/security_provider.dart';
@@ -12,6 +14,7 @@ import 'screens/transactions_screen.dart';
 import 'screens/reports_screen.dart';
 import 'screens/saved_reports_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/lending_screen.dart';
 import 'screens/lock_screen.dart';
 
 void main() async {
@@ -34,6 +37,8 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => TransactionProvider()),
+        ChangeNotifierProvider(create: (_) => AccountProvider()),
+        ChangeNotifierProvider(create: (_) => LendingProvider()),
         ChangeNotifierProvider(create: (_) => ReportProvider()),
         ChangeNotifierProvider(create: (_) => SecurityProvider()),
       ],
@@ -73,6 +78,7 @@ class _MainShellState extends State<MainShell> {
   List<Widget> _getScreens(VoidCallback onSeeAll) => [
     DashboardScreen(onSeeAll: onSeeAll),
     const TransactionsScreen(),
+    const LendingScreen(),
     const ReportsScreen(),
     const SavedReportsScreen(),
     const SettingsScreen(),
@@ -128,6 +134,11 @@ class _MainShellState extends State<MainShell> {
                 icon: Icon(Icons.receipt_long_outlined),
                 selectedIcon: Icon(Icons.receipt_long_rounded),
                 label: 'Transactions',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.handshake_outlined),
+                selectedIcon: Icon(Icons.handshake_rounded),
+                label: 'Lending',
               ),
               NavigationDestination(
                 icon: Icon(Icons.bar_chart_outlined),

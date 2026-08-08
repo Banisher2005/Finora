@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../database/hive_service.dart';
@@ -98,6 +100,8 @@ class TransactionProvider extends ChangeNotifier {
     String note = '',
     required DateTime date,
     required String time,
+    String accountId = 'cash',
+    String? imagePath,
   }) async {
     final tx = Transaction(
       id: _uuid.v4(),
@@ -109,13 +113,25 @@ class TransactionProvider extends ChangeNotifier {
       date: date,
       time: time,
       createdAt: DateTime.now(),
+      accountId: accountId,
+      imagePath: imagePath,
     );
     await HiveService.addTransaction(tx);
     loadTransactions();
   }
 
   Future<void> deleteTransaction(String id) async {
+    final tx = _transactions.cast<Transaction?>().firstWhere(
+          (item) => item?.id == id,
+          orElse: () => null,
+        );
     await HiveService.deleteTransaction(id);
+    if (tx?.imagePath != null) {
+      try {
+        final file = File(tx!.imagePath!);
+        if (await file.exists()) await file.delete();
+      } catch (_) {}
+    }
     loadTransactions();
   }
 

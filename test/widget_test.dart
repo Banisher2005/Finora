@@ -1,30 +1,39 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:finora/main.dart';
+import 'package:finora/models/lending.dart';
+import 'package:finora/models/transaction.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const FinoraApp());
+  test('transaction supports account and optional image', () {
+    final tx = Transaction(
+      id: 'test',
+      amount: 500,
+      type: TransactionType.expense,
+      category: 'Food',
+      source: 'Food',
+      date: DateTime(2026, 8, 8),
+      time: '12:00',
+      createdAt: DateTime(2026, 8, 8),
+      accountId: 'cash',
+      imagePath: '/tmp/receipt.jpg',
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    expect(tx.accountId, 'cash');
+    expect(tx.imagePath, '/tmp/receipt.jpg');
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  test('lending outstanding balance is calculated correctly', () {
+    final entry = LendingEntry(
+      id: 'loan-1',
+      person: 'Test Person',
+      amount: 5000,
+      repaidAmount: 1500,
+      direction: LendingDirection.lent,
+      accountId: 'cash',
+      createdAt: DateTime(2026, 8, 8),
+    );
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(entry.outstanding, 3500);
+    expect(entry.isSettled, isFalse);
   });
 }

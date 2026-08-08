@@ -58,6 +58,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           t.note.toLowerCase().contains(q) ||
           t.category.toLowerCase().contains(q) ||
           t.source.toLowerCase().contains(q) ||
+          t.accountId.toLowerCase().contains(q) ||
           t.amount.toString().contains(q)).toList();
     }
     list.sort((a, b) => b.date.compareTo(a.date));
@@ -88,6 +89,18 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       builder: (_) => AddTransactionSheet(
         initialType: type,
         initialDate: _isCurrentMonth ? null : _viewMonth,
+      ),
+    );
+  }
+
+  void _editTransaction(Transaction tx) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => AddTransactionSheet(
+        initialType: tx.type,
+        transaction: tx,
       ),
     );
   }
@@ -325,6 +338,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                   onDelete: () => context
                                       .read<TransactionProvider>()
                                       .deleteTransaction(t.id),
+                                  onEdit: () => _editTransaction(t),
                                 ).animate().fadeIn(
                                     duration: 250.ms,
                                     delay: Duration(
